@@ -11,8 +11,8 @@ from streamlit_mic_recorder import speech_to_text
 # CẤU HÌNH KHÓA API KEY CỦA BẠN TẠI ĐÂY
 # Hãy dán mã API Key cá nhân mới (bắt đầu bằng AIzaSy...) của bạn vào giữa hai dấu ngoặc kép
 # =====================================================================
-# Khởi tạo khóa API bảo mật từ Streamlit Secrets
-GEMINI_API_KEY = st.secrets
+# Khởi tạo khóa API bảo mật từ Streamlit Secrets bằng hàm get an toàn
+GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY")
 
 # Khởi tạo client sử dụng bộ thư viện google-genai SDK mới nhất
 client = genai.Client(api_key=GEMINI_API_KEY)
