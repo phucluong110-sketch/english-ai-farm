@@ -1,0 +1,15 @@
+[theme]
+# Màu chủ đạo cho các nút bấm, thanh trượt (Xanh lá Mint năng động)
+primaryColor = "#00B4D8" 
+
+# Màu nền chính của ứng dụng (Trắng kem dịu mắt)
+backgroundColor = "#F8F9FA" 
+
+# Màu nền phụ cho các hộp thoại, bảng chọn (Xanh nhạt thanh lịch)
+secondaryBackgroundColor = "#E3F2FD" 
+
+# Màu chữ chính (Xám đen đậm, không bị mỏi mắt như màu đen tuyền)
+textColor = "#212529" 
+
+# Phông chữ sử dụng
+font = "sans serif"
