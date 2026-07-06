@@ -12,7 +12,7 @@ from streamlit_mic_recorder import speech_to_text
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY")
 client = Groq(api_key=GROQ_API_KEY)
 
-# ĐÃ ĐIỀU CHỈNH: Chỉ thị hệ thống giúp Bot nói chuyện tự nhiên, như một người bạn đời thực
+# Chỉ thị hệ thống giúp Bot nói chuyện tự nhiên, như một người bạn đời thực
 PEDAGOGICAL_PROMPT = """
 You are a warm, casual, and supportive English speaking partner in an "AI Language Farm". 
 Your goal is to chat naturally with the user, just like a real friend or a friendly peer tutor would.
@@ -141,7 +141,7 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 2. HỆ THỐNG PHÂN BẬC NÔNG DÂN THEO MỐC CÂU NÓI
+# 2. HỆ THỐNG PHÂN BẬC NÔNG DÂN
 count = st.session_state.flower_count
 if count < 10:
     title_badge = f"🧑‍🌾 Cấp độ: Nông dân tập sự ({count} 🌻)"
@@ -152,7 +152,6 @@ elif count < 30:
 else:
     title_badge = f"👑 Cấp độ: Đại địa chủ thông thái ({count} 🌻)"
 
-# Hiển thị hoa hướng dương tượng trưng
 display_flowers = "🌻" * (count % 10 if count % 10 != 0 or count == 0 else 10)
 
 st.markdown(f"""
@@ -271,4 +270,12 @@ if captured_text and captured_text != st.session_state.last_processed_text:
             st.rerun()
                 
         except Exception as e:
-            st.error(f"Lỗi kết nối hoặc xử lý API Groq: {str(e)}")
+            # BẪY LỖI THÔNG MINH: Nếu gặp bất cứ lỗi gì, xóa câu thoại lỗi vừa thêm và báo lỗi nhẹ nhàng
+            if len(st.session_state.chat_history) > 0:
+                st.session_state.chat_history.pop() # Xóa câu thoại bị lỗi ra khỏi lịch sử
+            if st.session_state.flower_count > 0:
+                st.session_state.flower_count -= 1 # Trả lại hoa do ghi âm lỗi
+            st.session_state.last_processed_text = "" # Đặt lại trạng thái để người dùng có thể nói lại ngay
+            
+            # Hiển thị thông báo màu vàng cam lịch sự thay vì dòng chữ đỏ hệ thống kỹ thuật
+            st.warning("Thật đáng tiếc tôi không nghe rõ, mời bạn nói lại nhé.")
