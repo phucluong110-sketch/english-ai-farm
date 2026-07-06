@@ -1,115 +1,92 @@
 import streamlit as st
 import asyncio
 import os
-import json
 from groq import Groq
 import edge_tts
 from streamlit_mic_recorder import speech_to_text
 
-# ==========================================
-# CẤU HÌNH TRANG & GIAO DIỆN CHATBOX CỐ ĐỊNH
-# ==========================================
+# Cấu hình hiển thị trang
 st.set_page_config(
     page_title="Gia sư luyện tập tiếng anh", 
     page_icon="🌸", 
-    layout="wide",
-    initial_sidebar_state="collapsed"
+    layout="centered"
 )
 
-# Thêm CSS cao cấp cố định giao diện để không cần cuộn trang trên Điện thoại/PC
+# Thêm CSS cố định tiêu đề ở trên, nút điều khiển ở dưới đáy và tối ưu cỡ chữ di động
 st.markdown("""
 <style>
-    /* Ẩn bớt các khoảng trắng thừa của Streamlit */
+    /* Ẩn các thành phần thừa của Streamlit để tăng không gian hiển thị */
     [data-testid="stHeader"] {background: transparent;}
-    .block-container {
-        padding-top: 1.5rem !important;
-        padding-bottom: 5rem !important;
-        max-width: 800px !important;
-    }
     
-    /* Thiết kế Header tên Bot */
-    .bot-header {
+    /* 1. CỐ ĐỊNH TIÊU ĐỀ TRÊN CÙNG */
+    .fixed-header {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        background-color: #F8F9FA;
         text-align: center;
-        background: linear-gradient(135deg, #FFDEE9 0%, #B5FFFC 100%);
-        padding: 15px;
-        border-radius: 20px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-        margin-bottom: 15px;
+        padding: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        z-index: 999;
+        border-bottom: 1px solid #EAEAEA;
     }
-    .bot-header h1 {
+    .fixed-header h1 {
         color: #2C3E50;
-        font-size: 1.8rem !important;
+        font-size: 1.6rem !important;
         font-weight: 700 !important;
         margin: 0 !important;
     }
+
+    /* Tạo khoảng trống phía trên để nội dung không bị tiêu đề che khuất */
+    .main-content {
+        margin-top: 75px;
+        margin-bottom: 90px;
+        padding: 10px;
+    }
     
-    /* Thiết kế Avatar Bot hoạt họa trung tâm */
-    .avatar-container {
+    /* 2. KHUNG HÌNH BOT MINH HỌA TRỰC QUAN */
+    .bot-avatar-container {
         display: flex;
         justify-content: center;
-        align-items: center;
-        margin-bottom: 15px;
+        margin-bottom: 20px;
     }
-    .bot-avatar {
-        width: 120px;
-        height: 120px;
+    .bot-avatar-img {
+        width: 110px;
+        height: 110px;
         border-radius: 50%;
-        border: 4px solid #fff;
-        box-shadow: 0 4px 20px rgba(255, 105, 180, 0.3);
-        animation: pulse 3s infinite alternate;
-    }
-    @keyframes pulse {
-        0% { transform: scale(1); box-shadow: 0 4px 15px rgba(255, 105, 180, 0.3); }
-        100% { transform: scale(1.05); box-shadow: 0 4px 25px rgba(255, 105, 180, 0.6); }
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        border: 3px solid #FFF;
     }
 
-    /* Khung hộp thoại bong bóng chat */
-    .chat-bubble {
-        padding: 12px 16px;
-        border-radius: 20px;
-        margin-bottom: 10px;
-        max-width: 85%;
-        font-size: 1rem;
-        line-height: 1.4;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-    }
-    .chat-user {
-        background-color: #DCF8C6;
-        color: #333;
-        margin-left: auto;
-        border-bottom-right-radius: 5px;
-    }
-    .chat-bot {
-        background-color: #FFFFFF;
-        color: #333;
-        margin-right: auto;
-        border-bottom-left-radius: 5px;
-        border: 1px solid #EAEAEA;
-    }
-    
-    /* Gắn chặt thanh điều khiển nhập liệu/ghi âm xuống ĐÁY màn hình */
-    .footer-controls {
+    /* 3. CỐ ĐỊNH THANH ĐIỀU KHIỂN Ở ĐÁY MÀN HÌNH */
+    .fixed-footer {
         position: fixed;
         bottom: 0;
         left: 0;
         right: 0;
-        background: rgba(255, 255, 255, 0.95);
-        padding: 10px 20px;
-        box-shadow: 0 -4px 20px rgba(0,0,0,0.08);
+        background-color: #FFFFFF;
+        padding: 10px 15px;
+        box-shadow: 0 -4px 15px rgba(0,0,0,0.06);
         z-index: 999;
-        display: flex;
-        justify-content: center;
+        border-top: 1px solid #EAEAEA;
     }
-    .footer-content {
-        max-width: 800px;
-        width: 100%;
+    .footer-container {
+        max-width: 700px;
+        margin: 0 auto;
+    }
+
+    /* Tối ưu hóa cỡ chữ hiển thị cân đối trên Điện thoại & Máy tính */
+    .text-response {
+        font-size: 1.1rem;
+        line-height: 1.5;
+        color: #333333;
     }
     
-    /* Cấu hình chữ thân thiện với điện thoại di động */
     @media (max-width: 640px) {
-        .bot-header h1 { font-size: 1.4rem !important; }
-        .bot-avatar { width: 90px; height: 90px; }
-        .chat-bubble { font-size: 0.95rem; max-width: 90%; }
+        .fixed-header h1 { font-size: 1.3rem !important; }
+        .bot-avatar-img { width: 85px; height: 85px; }
+        .text-response { font-size: 1rem; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -118,7 +95,7 @@ st.markdown("""
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY")
 client = Groq(api_key=GROQ_API_KEY)
 
-# Chỉ thị hệ thống định hình hành vi Gia sư kiến tạo
+# Chỉ thị hệ thống thiết lập tính cách cho Bot
 PEDAGOGICAL_PROMPT = """
 You are a friendly, encouraging, and supportive English speaking tutor. 
 Your goal is to help the user practice English conversational skills.
@@ -129,20 +106,30 @@ Rules:
 4. Gently comment or rephrase if the user makes a noticeable grammatical error, but keep the tone positive.
 """
 
-# Khởi tạo các biến Session State lưu trữ lịch sử cuộc trò chuyện
-if "messages" not in st.session_state:
-    st.session_state.messages = [{"role": "assistant", "content": "Hello! I am your AI Speaking Tutor. Let's practice talking in English together! What is your name?"}]
-if "audio_path" not in st.session_state:
-    st.session_state.audio_path = None
+# Khởi tạo các biến lưu trữ hội thoại liên tục (Session State)
+if "conversation_history" not in st.session_state:
+    st.session_state.conversation_history = []
+if "current_ai_text" not in st.session_state:
+    st.session_state.current_ai_text = "Hello! I am your AI Speaking Tutor. Let's practice talking in English together! What is your name?"
+if "current_user_text" not in st.session_state:
+    st.session_state.current_user_text = ""
+if "play_audio" not in st.session_state:
+    st.session_state.play_audio = False
 
-async def generate_voice_file(text, filename="response.mp3"):
-    """Hàm chuyển văn bản thành giọng nói tiếng Anh"""
+async def generate_voice(text, filename="response.mp3"):
+    """Chuyển văn bản thành file nói mp3"""
     communicate = edge_tts.Communicate(text, "en-US-EmmaNeural")
     await communicate.save(filename)
 
-def get_groq_response(chat_history):
-    """Hàm gọi AI Groq xử lý hội thoại"""
-    messages = [{"role": "system", "content": PEDAGOGICAL_PROMPT}] + chat_history
+def ask_groq(user_input):
+    """Gửi toàn bộ lịch sử trò chuyện lên Groq để nhận câu trả lời phát triển tiếp nối"""
+    messages = [{"role": "system", "content": PEDAGOGICAL_PROMPT}]
+    # Nạp toàn bộ tiến trình lịch sử cuộc trò chuyện từ trước đến nay vào để bot nhớ ngữ cảnh
+    for msg in st.session_state.conversation_history:
+        messages.append(msg)
+    # Thêm câu nói mới nhất của người dùng
+    messages.append({"role": "user", "content": user_input})
+    
     try:
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
@@ -155,60 +142,68 @@ def get_groq_response(chat_history):
         return f"Error: {str(e)}"
 
 # ==========================================
-# GIAO DIỆN HIỂN THỊ TRÊN MÀN HÌNH
+# GIAO DIỆN HIỂN THỊ
 # ==========================================
 
-# 1. TIÊU ĐỀ TRÊN CÙNG
+# 1. Tiêu đề cố định trên cùng
 st.markdown("""
-<div class="bot-header">
-    <h1>🌸 Gia sư luyện tập tiếng anh 🌸</h1>
+<div class="fixed-header">
+    <h1>🌸 Gia sư luyện tập tiếng anh </h1>
 </div>
 """, unsafe_allow_html=True)
 
-# 2. CON BOT AI MINH HỌA TRUNG TÂM (Sử dụng ảnh minh họa hoạt hình cute)
+# Mở khung chứa nội dung chính (Được đẩy dịch xuống để không bị che khuất)
+st.markdown('<div class="main-content">', unsafe_allow_html=True)
+
+# 2. Con Bot AI minh họa trực quan ở giữa
 st.markdown("""
-<div class="avatar-container">
-    <img class="bot-avatar" src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f469_200d_1f3eb/512.webp" alt="AI Tutor">
+<div class="bot-avatar-container">
+    <img class="bot-avatar-img" src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f469_200d_1f3eb/512.webp" alt="AI Teacher">
 </div>
 """, unsafe_allow_html=True)
 
-# 3. KHU VỰC NỘI DUNG CHAT (Nằm ở giữa)
-chat_container = st.container()
-with chat_container:
-    for msg in st.session_state.messages:
-        if msg["role"] == "user":
-            st.markdown(f'<div class="chat-bubble chat-user"><b>You:</b> {msg["content"]}</div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div class="chat-bubble chat-bot"><b>AI Tutor:</b> {msg["content"]}</div>', unsafe_allow_html=True)
+# 3. Khu vực hiển thị nội dung câu thoại hiện tại (Luôn xuất hiện ở giữa)
+st.write("---")
+if st.session_state.current_user_text:
+    st.markdown(f"**🧑 Bạn vừa nói/gõ:**")
+    st.info(st.session_state.current_user_text)
 
-# Phát âm thanh phản hồi của AI nếu có
-if st.session_state.audio_path and os.path.exists(st.session_state.audio_path):
-    st.audio(st.session_state.audio_path, format="audio/mp3", autoplay=True)
-    st.session_state.audio_path = None # Reset sau khi phát xong
+st.markdown(f"**👩 Gia sư AI phản hồi:**")
+st.success(st.session_state.current_ai_text)
 
-# 4. THANH ĐIỀU KHIỂN LUÔN CỐ ĐỊNH Ở ĐÁY MÀN HÌNH (Ghi âm + Nhập chữ)
-st.markdown('<div class="footer-controls"><div class="footer-content">', unsafe_allow_html=True)
+# Phát âm thanh tự động nếu có phản hồi mới
+if st.session_state.play_audio and os.path.exists("response.mp3"):
+    st.audio("response.mp3", format="audio/mp3", autoplay=True)
+    st.session_state.play_audio = False
 
-col1, col2, col3 = st.columns([2, 5, 1.5])
+# Đóng khung chứa nội dung chính
+st.markdown('</div>', unsafe_allow_html=True)
 
-# Công cụ 1: Nhấn để GHI ÂM giọng nói
+# 4. Thanh công cụ (Ghi âm + Gõ chữ) CỐ ĐỊNH HOÀN TOÀN Ở ĐÁY MÀN HÌNH
+st.markdown('<div class="fixed-footer"><div class="footer-container">', unsafe_allow_html=True)
+
+col1, col2, col3 = st.columns([3, 5, 2])
+
 with col1:
-    user_speech = speech_to_text(
+    # Nút bấm ghi âm nói giọng nói
+    spoken_text = speech_to_text(
         start_prompt="🎙️ Bấm để nói",
         stop_prompt="🛑 Dừng nói",
         language='en',
         use_container_width=True,
-        key="speech_input"
+        key="voice_input"
     )
 
-# Công cụ 2: Ô ĐÁNH CHỮ (Dành cho lúc không tiện nói)
 with col2:
-    user_text = st.text_input("", placeholder="Hoặc gõ chữ tiếng Anh vào đây...", label_visibility="collapsed", key="text_input")
+    # Ô nhập văn bản khi không tiện nói
+    typed_text = st.text_input("", placeholder="Hoặc gõ chữ tiếng Anh...", label_visibility="collapsed", key="text_field")
 
-# Công cụ 3: Nút Xóa cuộc thoại
 with col3:
+    # Nút bấm xóa lịch sử làm lại từ đầu
     if st.button("🗑️ Xóa", use_container_width=True):
-        st.session_state.messages = [{"role": "assistant", "content": "Hello! Let's start a new practice session. What would you like to talk about today?"}]
+        st.session_state.conversation_history = []
+        st.session_state.current_user_text = ""
+        st.session_state.current_ai_text = "Hello! Let's start a new practice session. What is your name?"
         if os.path.exists("response.mp3"):
             os.remove("response.mp3")
         st.rerun()
@@ -216,27 +211,34 @@ with col3:
 st.markdown('</div></div>', unsafe_allow_html=True)
 
 # ==========================================
-# XỬ LÝ DỮ LIỆU ĐẦU VÀO TỪ NGƯỜI DÙNG
+# LOGIC XỬ LÝ DỮ LIỆU ĐẦU VÀO
 # ==========================================
-final_input = None
+resolved_input = None
 
-if user_speech:
-    final_input = user_speech
-elif user_text and user_text != st.session_state.get("last_text_input", ""):
-    final_input = user_text
-    st.session_state["last_text_input"] = user_text
+if spoken_text:
+    resolved_input = spoken_text
+elif typed_text and typed_text != st.session_state.get("previous_typed_text", ""):
+    resolved_input = typed_text
+    st.session_state["previous_typed_text"] = typed_text
 
-if final_input:
-    # Lưu tin nhắn của Người dùng
-    st.session_state.messages.append({"role": "user", "content": final_input})
+# Nếu phát hiện có câu thoại mới được đưa vào
+if resolved_input:
+    # Cập nhật hiển thị text của người dùng lên màn hình chính
+    st.session_state.current_user_text = resolved_input
     
-    # Gọi AI sinh câu trả lời
-    with st.spinner("AI Tutor đang lắng nghe và suy nghĩ..."):
-        bot_reply = get_groq_response(st.session_state.messages)
-        st.session_state.messages.append({"role": "assistant", "content": bot_reply})
+    with st.spinner("Gia sư đang nghe và chuẩn bị câu trả lời..."):
+        # 1. Gọi Groq lấy câu trả lời (Có truyền theo cả chuỗi lịch sử trước đó)
+        new_ai_reply = ask_groq(resolved_input)
         
-        # Sinh file âm thanh đọc câu trả lời
-        asyncio.run(generate_voice_file(bot_reply, "response.mp3"))
-        st.session_state.audio_path = "response.mp3"
+        # 2. Lưu cặp câu thoại này vào lịch sử bộ nhớ để lần sau nói tiếp câu chuyện liên mạch
+        st.session_state.conversation_history.append({"role": "user", "content": resolved_input})
+        st.session_state.conversation_history.append({"role": "assistant", "content": new_ai_reply})
+        
+        # 3. Cập nhật câu thoại của bot lên màn hình
+        st.session_state.current_ai_text = new_ai_reply
+        
+        # 4. Tạo file âm thanh đọc nối tiếp câu thoại mới
+        asyncio.run(generate_voice(new_ai_reply, "response.mp3"))
+        st.session_state.play_audio = True
         
     st.rerun()
