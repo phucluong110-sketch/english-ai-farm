@@ -161,7 +161,7 @@ col1, col2 = st.columns([3.5, 1.5])
 with col1:
     captured_text = speech_to_text(
         language='en',
-        start_prompt="Lay r🎙️ Bắt đầu ghi âm nói",
+        start_prompt="🎙️ Bắt đầu ghi âm nói",
         stop_prompt="⏹️ Dừng ghi âm",
         just_once=True,
         key='stt_module'
