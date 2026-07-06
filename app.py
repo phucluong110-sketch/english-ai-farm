@@ -143,11 +143,11 @@ st.markdown("""
 
 # 2. HỆ THỐNG PHÂN BẬC NÔNG DÂN
 count = st.session_state.flower_count
-if count < 10:
+if count < 5:
     title_badge = f"🧑‍🌾 Cấp độ: Nông dân tập sự ({count} 🌻)"
-elif count < 20:
+elif count < 15:
     title_badge = f"🌿 Cấp độ: Người làm vườn chăm chỉ ({count} 🌻)"
-elif count < 30:
+elif count < 25:
     title_badge = f"🌻 Cấp độ: Chuyên gia thảo mộc ({count} 🌻)"
 else:
     title_badge = f"👑 Cấp độ: Đại địa chủ thông thái ({count} 🌻)"
