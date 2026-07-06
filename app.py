@@ -1,6 +1,5 @@
 import streamlit as st
 import asyncio
-import os
 import json
 from groq import Groq  # Đã đổi từ google.genai sang thư viện groq
 import edge_tts
@@ -24,11 +23,13 @@ Adhere strictly to the following interaction rules:
 5. If the user fails to correct the mistake after 2-3 attempts, provide the direct correction and transition to a new topic.
 """
 
-# Khởi tạo các trạng thái bộ nhớ đệm
+# Khởi tạo các trạng thái bộ nhớ đệm độc lập cho từng phiên người dùng
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = list()
 if "last_processed_text" not in st.session_state:
     st.session_state.last_processed_text = ""
+if "audio_bytes_to_play" not in st.session_state:
+    st.session_state.audio_bytes_to_play = None
 
 # Thiết lập cấu hình trang Streamlit
 st.set_page_config(page_title="Gia Sư Tiếng Anh Nông Trại 🧑‍🌾🌸", page_icon="🌸", layout="centered")
@@ -86,7 +87,7 @@ st.markdown("""
 
     /* KHUNG CUỘN CHỨA NỘI DUNG CHÍNH (Tránh bị che khuất bởi thanh công cụ đáy) */
     .chat-scroll-area {
-        margin-bottom: 120px;
+        margin-bottom: 130px;
         padding: 10px;
     }
 
@@ -145,16 +146,22 @@ for item in st.session_state.chat_history:
                 with st.expander("🌐 Xem cành hoa dịch nghĩa"):
                     st.write(translation)
 
+# PHÁT ÂM THANH TRỰC TIẾP TỪ BỘ NHỚ ĐỆM (Hạn chế tối đa lỗi xóa file quá sớm)
+if st.session_state.audio_bytes_to_play:
+    st.audio(st.session_state.audio_bytes_to_play, format="audio/mp3", autoplay=True)
+    # Xóa bộ nhớ âm thanh tạm thời ngay sau khi gọi để tránh việc trang tự động re-play câu cũ
+    st.session_state.audio_bytes_to_play = None
+
 st.markdown('</div>', unsafe_allow_html=True) # Đóng khung nội dung chính
 
-# 2. THANH ĐIỀU KHIỂN NEO CHẶT ĐÁY MÀN HÌNH KHÔNG BỊ LỖI CHỮ "2026"
+# 2. THANH ĐIỀU KHIỂN NEO CHẶT ĐÁY MÀN HÌNH - ĐÃ FIX SẠCH LỖI CHỮ "2026"
 st.markdown('<div class="fixed-bottom-bar"><div class="fixed-bottom-container">', unsafe_allow_html=True)
 
 col1, col2 = st.columns([3.5, 1.5])
 with col1:
     captured_text = speech_to_text(
         language='en',
-        start_prompt="⏺️ Bắt đầu ghi âm nói",
+        start_prompt="Lay r🎙️ Bắt đầu ghi âm nói",
         stop_prompt="⏹️ Dừng ghi âm",
         just_once=True,
         key='stt_module'
@@ -163,9 +170,7 @@ with col2:
     if st.button("🧹 Xóa cuộc thoại", use_container_width=True):
         st.session_state.chat_history = list()
         st.session_state.last_processed_text = ""
-        if os.path.exists("ai_speech.mp3"):
-            try: os.remove("ai_speech.mp3")
-            except: pass
+        st.session_state.audio_bytes_to_play = None
         st.rerun()
 
 st.markdown('</div></div>', unsafe_allow_html=True) # Đóng khung đáy
@@ -189,7 +194,7 @@ if captured_text and captured_text != st.session_state.last_processed_text:
             )
             ai_response_text = completion.choices[0].message.content
             
-            # Thực hiện dịch ngầm
+            # Thực hiện dịch ngầm sang tiếng Việt
             vi_translation = ""
             try:
                 translate_prompt = f"Translate the following English text into natural, native-sounding Vietnamese. Return ONLY the translated text, do not add any intros or explanations:\n\n{ai_response_text}"
@@ -204,19 +209,18 @@ if captured_text and captured_text != st.session_state.last_processed_text:
             
             st.session_state.chat_history.append(("ai", ai_response_text, vi_translation))
             
-            async def generate_voice_file(text, output_path="ai_speech.mp3"):
+            # GIẢI PHÁP ĐỘT PHÁ: Chuyển âm thanh thành dòng byte chạy trực tiếp trên RAM, không lưu file vật lý
+            async def generate_voice_stream(text):
                 communicate = edge_tts.Communicate(text, voice="en-US-AvaNeural")
-                await communicate.save(output_path)
+                audio_data = b""
+                async for chunk in communicate.stream():
+                    if chunk["type"] == "audio":
+                        audio_data += chunk["data"]
+                return audio_data
                 
-            asyncio.run(generate_voice_file(ai_response_text))
+            # Lưu dòng âm thanh trực tiếp vào biến session_state biệt lập của người dùng này
+            st.session_state.audio_bytes_to_play = asyncio.run(generate_voice_stream(ai_response_text))
             st.rerun()
                 
         except Exception as e:
             st.error(f"Lỗi kết nối hoặc xử lý API Groq: {str(e)}")
-        
-if os.path.exists("ai_speech.mp3") and st.session_state.last_processed_text:
-    st.audio("ai_speech.mp3", format="audio/mp3", autoplay=True)
-    try:
-        os.remove("ai_speech.mp3")
-    except PermissionError:
-        pass
