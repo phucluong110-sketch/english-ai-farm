@@ -83,8 +83,36 @@ st.markdown("""
         border-radius: 12px!important;
         box-shadow: 0 2px 8px rgba(0,0,0,0.02)!important;
     }
+
+    /* ==========================================================
+       BỔ SUNG CSS: NEO CỐ ĐỊNH THANH ĐIỀU KHIỂN XUỐNG ĐÁY MÀN HÌNH
+       ========================================================== */
+    /* Tạo khoảng đệm ở đáy nội dung chính để không bị thanh công cụ che mất */
+    .main-scroll-container {
+        margin-bottom: 110px;
+    }
+
+    /* Khung cố định ở đáy màn hình */
+    .fixed-footer-panel {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: linear-gradient(135deg, rgba(232, 245, 233, 0.95) 0%, rgba(255, 248, 225, 0.95) 100%);
+        padding: 15px 20px;
+        box-shadow: 0 -5px 20px rgba(0,0,0,0.08);
+        z-index: 999;
+        border-top: 1px solid #C8E6C9;
+    }
+    .footer-content-wrapper {
+        max-width: 700px;
+        margin: 0 auto;
+    }
 </style>
 """, unsafe_allow_html=True)
+
+# Bao bọc toàn bộ nội dung hiển thị lịch sử trò chuyện vào một container div để căn khoảng cách đáy
+st.markdown('<div class="main-scroll-container">', unsafe_allow_html=True)
 
 st.title("Gia Sư Tiếng Anh Nông Trại 🧑‍🌾🌸")
 st.write("Chăm sóc vườn tri thức Anh ngữ mỗi ngày cùng cành hoa đào thông thái.")
@@ -93,21 +121,52 @@ st.write("Chăm sóc vườn tri thức Anh ngữ mỗi ngày cùng cành hoa đ
 st.header("Luyện Nói Tiếng Anh Với Cành Hoa AI 🌸")
 st.write("Hãy nhấn nút ghi âm bên dưới và nói một câu tiếng Anh. Cành hoa thông thái sẽ lắng nghe và trò chuyện cùng bạn.")
 
-# Thiết kế khu vực nút ghi âm và nút dọn dẹp hàng xóm sát nhau
+# Thiết lập nhận diện đầu vào từ micro
+captured_text = None
+
+# XỬ LÝ LOGIC API KHI CÓ ĐẦU VÀO MỚI (Đặt trước phần hiển thị để cập nhật danh sách mượt mà)
+# Để nhận diện từ module ghi âm ở đáy, chúng ta cần khai báo một vị trí ẩn tạm thời để hứng dữ liệu
+placeholder_stt = st.empty()
+
+# HIỂN THỊ LẠI LỊCH SỬ TRÒ CHUYỆN
+for item in st.session_state.chat_history:
+    if isinstance(item, (tuple, list)) and len(item) >= 2:
+        speaker = item[0]  # Vai trò "user" hoặc "ai"
+        text = item[1]     # Câu thoại
+        translation = item[2] if len(item) >= 3 else None
+        
+        if speaker == "user":
+            st.chat_message("user", avatar="🧑‍🌾").write(text)
+        else:
+            st.chat_message("assistant", avatar="🌸").write(text)
+            if translation:
+                with st.expander("🌐 Xem cành hoa dịch nghĩa"):
+                    st.write(translation)
+
+st.markdown('</div>', unsafe_allow_html=True) # Đóng div nội dung chính
+
+# --- THANH ĐIỀU KHIỂN ĐƯỢC ÉP CHẶT XUỐNG ĐÁY MÀN HÌNH ---
+st.markdown('<div class="fixed-footer-panel"><div class="footer-content-wrapper">', unsafe_allow_html=True)
+
 col1, col2 = st.columns([4, 1])
 with col1:
     captured_text = speech_to_text(
         language='en',
-        start_prompt="⏺️ Bắt đầu ghi âm nói",
+        start_prompt="2026 ⏺️ Bắt đầu ghi âm nói",
         stop_prompt="⏹️ Dừng ghi âm",
         just_once=True,
         key='stt_module'
     )
 with col2:
-    if st.button("🧹 Xóa cuộc thoại"):
+    if st.button("🧹 Xóa cuộc thoại", use_container_width=True):
         st.session_state.chat_history = list()
         st.session_state.last_processed_text = ""
+        if os.path.exists("ai_speech.mp3"):
+            try: os.remove("ai_speech.mp3")
+            except: pass
         st.rerun()
+
+st.markdown('</div></div>', unsafe_allow_html=True) # Đóng div thanh điều khiển đáy
 
 # Chỉ xử lý khi có câu thoại mới hoàn toàn để chống lặp trang
 if captured_text and captured_text != st.session_state.last_processed_text:
@@ -116,7 +175,7 @@ if captured_text and captured_text != st.session_state.last_processed_text:
     
     with st.spinner("Cành hoa đang suy nghĩ câu trả lời..."):
         try:
-            # Xây dựng mảng tin nhắn (messages) chứa toàn bộ lịch sử để gửi lên Groq (vì Groq không dùng interaction_id)
+            # Xây dựng mảng tin nhắn (messages) chứa toàn bộ lịch sử để gửi lên Groq
             groq_messages = [{"role": "system", "content": PEDAGOGICAL_PROMPT}]
             for speaker, text, _ in st.session_state.chat_history:
                 role = "user" if speaker == "user" else "assistant"
@@ -151,26 +210,12 @@ if captured_text and captured_text != st.session_state.last_processed_text:
                 await communicate.save(output_path)
                 
             asyncio.run(generate_voice_file(ai_response_text))
+            st.rerun() # Tải lại trang để cập nhật bong bóng thoại ngay lập tức
                 
         except Exception as e:
             st.error(f"Lỗi kết nối hoặc xử lý API Groq: {str(e)}")
-                
-    # HIỂN THỊ LẠI LỊCH SỬ TRÒ CHUYỆN
-    for item in st.session_state.chat_history:
-        if isinstance(item, (tuple, list)) and len(item) >= 2:
-            speaker = item[0]  # Vai trò "user" hoặc "ai"
-            text = item[1]     # Câu thoại
-            translation = item[2] if len(item) >= 3 else None
-            
-            if speaker == "user":
-                st.chat_message("user", avatar="🧑‍🌾").write(text)
-            else:
-                st.chat_message("assistant", avatar="🌸").write(text)
-                if translation:
-                    with st.expander("🌐 Xem cành hoa dịch nghĩa"):
-                        st.write(translation)
         
-if os.path.exists("ai_speech.mp3") and captured_text:
+if os.path.exists("ai_speech.mp3") and st.session_state.last_processed_text:
     st.audio("ai_speech.mp3", format="audio/mp3", autoplay=True)
     try:
         os.remove("ai_speech.mp3")
