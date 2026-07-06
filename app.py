@@ -12,17 +12,23 @@ from streamlit_mic_recorder import speech_to_text
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY")
 client = Groq(api_key=GROQ_API_KEY)
 
-# Chỉ thị hệ thống giúp Bot nói chuyện tự nhiên, như một người bạn đời thực
+# CẤU HÌNH PHÒNG HỌC MỚI: Ép Bot sửa câu chuẩn trước, nói chuyện tự nhiên sau
 PEDAGOGICAL_PROMPT = """
-You are a warm, casual, and supportive English speaking partner in an "AI Language Farm". 
-Your goal is to chat naturally with the user, just like a real friend or a friendly peer tutor would.
+You are a friendly, highly effective English speaking partner in an "AI Language Farm". 
+Your dual job is to act as a gentle grammar corrector AND a casual conversational friend.
 
-Adhere strictly to these communication rules:
-1. Speak in a natural, conversational, and friendly tone. Use casual but polite transitions.
-2. DO NOT correct or mention minor typos like capitalization (writing lowercase instead of uppercase) or missing periods/commas at the end of sentences. Completely ignore them.
-3. Only if the user makes a significant grammatical error, uses the wrong word/tense, or says something very unnatural, gently suggest a better way to phrase it. Do not be overly academic.
-4. Keep your responses concise, direct, and under 120 words.
-5. Always keep the conversation flowing by ending your turn with a casual, open-ended question related to the topic.
+You MUST structure your response into exactly TWO separate parts:
+
+PART 1: GRAMMAR FIX (Always put this at the very beginning)
+- Review the user's latest input sentence.
+- If it has grammatical, tense, or word choice errors, rewrite the whole sentence correctly. Format it exactly like this: "✨ Phép thuật ngữ pháp: [Put the corrected version of their sentence here]".
+- CRITICAL: Completely ignore capitalization mistakes (e.g., if they wrote lowercase instead of uppercase, do NOT fix or count it as an error). Focus ONLY on structural or vocabulary correctness.
+- If their sentence is already grammatically perfect, always output: "✨ Câu của bạn đã chuẩn chỉnh rồi!".
+
+PART 2: CASUAL CONVERSATION (Put this right after Part 1)
+- Respond to the content of the user's message in a very natural, friendly, and conversational tone, just like a real friend.
+- Keep your conversational response under 100 words.
+- Always end with a casual, open-ended question related to the topic to keep the chat going.
 """
 
 # Khởi tạo các trạng thái bộ nhớ đệm độc lập cho từng phiên người dùng
@@ -143,11 +149,11 @@ st.markdown("""
 
 # 2. HỆ THỐNG PHÂN BẬC NÔNG DÂN
 count = st.session_state.flower_count
-if count < 5:
+if count < 10:
     title_badge = f"🧑‍🌾 Cấp độ: Nông dân tập sự ({count} 🌻)"
-elif count < 15:
+elif count < 20:
     title_badge = f"🌿 Cấp độ: Người làm vườn chăm chỉ ({count} 🌻)"
-elif count < 25:
+elif count < 30:
     title_badge = f"🌻 Cấp độ: Chuyên gia thảo mộc ({count} 🌻)"
 else:
     title_badge = f"👑 Cấp độ: Đại địa chủ thông thái ({count} 🌻)"
@@ -239,7 +245,7 @@ if captured_text and captured_text != st.session_state.last_processed_text:
             completion = client.chat.completions.create(
                 model="llama-3.3-70b-versatile",
                 messages=groq_messages,
-                temperature=0.7,
+                temperature=0.6,
             )
             ai_response_text = completion.choices[0].message.content
             
@@ -270,12 +276,10 @@ if captured_text and captured_text != st.session_state.last_processed_text:
             st.rerun()
                 
         except Exception as e:
-            # BẪY LỖI THÔNG MINH: Nếu gặp bất cứ lỗi gì, xóa câu thoại lỗi vừa thêm và báo lỗi nhẹ nhàng
+            # BẪY LỖI: Trả lại hoa và báo lỗi nhẹ nhàng
             if len(st.session_state.chat_history) > 0:
-                st.session_state.chat_history.pop() # Xóa câu thoại bị lỗi ra khỏi lịch sử
+                st.session_state.chat_history.pop() 
             if st.session_state.flower_count > 0:
-                st.session_state.flower_count -= 1 # Trả lại hoa do ghi âm lỗi
-            st.session_state.last_processed_text = "" # Đặt lại trạng thái để người dùng có thể nói lại ngay
-            
-            # Hiển thị thông báo màu vàng cam lịch sự thay vì dòng chữ đỏ hệ thống kỹ thuật
+                st.session_state.flower_count -= 1 
+            st.session_state.last_processed_text = "" 
             st.warning("Thật đáng tiếc tôi không nghe rõ, mời bạn nói lại nhé.")
