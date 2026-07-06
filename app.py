@@ -19,8 +19,8 @@ Your core objective is to help the user learn and practice English dynamically.
 
 Adhere strictly to the following interaction rules:
 1. Review the user's input. If they make a grammatical, spelling, or vocabulary mistake, DO NOT give the correct answer immediately.
-2. Clearly point out the error (you can explicitly wrap the wrong phrase or rule explanation so the user can easily see it), explain the rule briefly using simple language, and encourage them to try correcting it in their next turn.
-3. Keep responses highly focused, direct, and under 150 words. Avoid generic praise (e.g., "Good job!", "Excellent!").
+2. Clearly point out the error, explain the rule briefly using simple language, and encourage them to try correcting it in their next turn.
+3. Keep responses highly focused, direct, and under 150 words. Avoid generic praise.
 4. Always end your turn with a level-appropriate, open-ended question based on the ongoing topic to keep the conversation going.
 5. If the user fails to correct the mistake after 2-3 attempts, provide the direct correction and transition to a new topic.
 """
@@ -32,8 +32,6 @@ if "last_processed_text" not in st.session_state:
     st.session_state.last_processed_text = ""
 if "audio_bytes_to_play" not in st.session_state:
     st.session_state.audio_bytes_to_play = None
-
-# TÍNH NĂNG GAME HÓA: Khởi tạo bộ đếm số bông hoa thu hoạch
 if "flower_count" not in st.session_state:
     st.session_state.flower_count = 0
 
@@ -43,7 +41,6 @@ st.set_page_config(page_title="Gia Sư Tiếng Anh Nông Trại 🧑‍🌾🌸"
 # --- ĐOẠN CODE TRANG TRÍ GIAO DIỆN NÔNG TRẠI BẰNG CSS ---
 st.markdown("""
 <style>
-    /* Toàn bộ nền ứng dụng */
     .stApp {
         background: linear-gradient(135deg, #E8F5E9 0%, #FFF8E1 100%)!important;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -54,7 +51,6 @@ st.markdown("""
         color: #000000 !important;
     }
     
-    /* CĂN GIỮA VÀ TỐI ƯU TIÊU ĐỀ THEO KÍCH THƯỚC MÀN HÌNH */
     .center-header {
         text-align: center;
         margin-bottom: 15px;
@@ -70,12 +66,11 @@ st.markdown("""
         color: #555555 !important;
     }
 
-    /* Khung hiển thị nông trại hoa hướng dương */
     .farm-status {
         background-color: rgba(255, 255, 255, 0.8);
         border: 2px dashed #FFCA28;
         border-radius: 15px;
-        padding: 10px;
+        padding: 12px;
         text-align: center;
         margin-bottom: 20px;
         box-shadow: 0 4px 6px rgba(0,0,0,0.02);
@@ -86,7 +81,6 @@ st.markdown("""
         margin-top: 5px;
     }
 
-    /* Thiết lập lại nút dọn dẹp */
     div.stButton > button {
         background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%)!important;
         color: white!important;
@@ -107,13 +101,11 @@ st.markdown("""
         border-radius: 12px!important;
     }
 
-    /* KHUNG CUỘN CHỨA NỘI DUNG CHÍNH (Tránh bị che khuất bởi thanh công cụ đáy) */
     .chat-scroll-area {
         margin-bottom: 130px;
         padding: 10px;
     }
 
-    /* FIX THANH ĐIỀU KHIỂN CỐ ĐỊNH Ở ĐÁY MÀN HÌNH MƯỢT MÀ */
     .fixed-bottom-bar {
         position: fixed;
         bottom: 0;
@@ -130,7 +122,6 @@ st.markdown("""
         margin: 0 auto;
     }
 
-    /* RESPONSIVE: ĐIỀU CHỈNH CHỮ PHÙ HỢP CHO ĐIỆN THOẠI & IPAD */
     @media (max-width: 768px) {
         .center-header h1 { font-size: 1.7rem !important; }
         .center-header p { font-size: 0.95rem; }
@@ -142,7 +133,7 @@ st.markdown("""
 # Khởi tạo vùng nội dung chính
 st.markdown('<div class="chat-scroll-area">', unsafe_allow_html=True)
 
-# 1. TIÊU ĐỀ CĂN GIỮA ĐẸP MẮT
+# 1. TIÊU ĐỀ CĂN GIỮA
 st.markdown("""
 <div class="center-header">
     <h1>Gia Sư Tiếng Anh Nông Trại 🧑‍🌾🌸</h1>
@@ -150,43 +141,66 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# 2. KHU VỰC HIỂN THỊ NÔNG TRẠI GAME HÓA
-# Tính toán số lượng hoa hiển thị thực tế trên màn hình (Tối đa 10 bông chu kỳ)
-display_flowers = "🌻" * (st.session_state.flower_count % 10 if st.session_state.flower_count % 10 != 0 or st.session_state.flower_count == 0 else 10)
-title_badge = f"🧑‍🌾 Cấp độ: Nông dân tập sự ({st.session_state.flower_count} 🌻)" if st.session_state.flower_count < 10 else f"🌟 Cấp độ: Chủ trang trại thông thái ({st.session_state.flower_count} 🌻)"
+# 2. HỆ THỐNG PHÂN BẬC NÔNG DÂN THEO MỐC CÂU NÓI
+count = st.session_state.flower_count
+if count < 10:
+    title_badge = f"🧑‍🌾 Cấp độ: Nông dân tập sự ({count} 🌻)"
+elif count < 20:
+    title_badge = f"🌿 Cấp độ: Người làm vườn chăm chỉ ({count} 🌻)"
+elif count < 30:
+    title_badge = f"🌻 Cấp độ: Chuyên gia thảo mộc ({count} 🌻)"
+else:
+    title_badge = f"👑 Cấp độ: Đại địa chủ thông thái ({count} 🌻)"
+
+# Hiển thị số lượng hoa hướng dương tượng trưng (Tối đa hiển thị 10 bông trên hàng cho đẹp)
+display_flowers = "🌻" * (count % 10 if count % 10 != 0 or count == 0 else 10)
 
 st.markdown(f"""
 <div class="farm-status">
-    <b style="color: #E65100;">{title_badge}</b>
-    <div class="sunflowers">{display_flowers if st.session_state.flower_count > 0 else '🪹 Vườn trống (Hãy nói để trồng hoa)'}</div>
+    <b style="color: #E65100; font-size: 1.1rem;">{title_badge}</b>
+    <div class="sunflowers">{display_flowers if count > 0 else '🪹 Vườn trống (Hãy nói để trồng hoa)'}</div>
 </div>
 """, unsafe_allow_html=True)
 
 st.markdown("<h3 style='text-align: center; color: #1B5E20;'>Luyện Nói Tiếng Anh Với Cành Hoa AI 🌸</h3>", unsafe_allow_html=True)
 
-# HIỂN THỊ LẠI LỊCH SỬ TRÒ CHUYỆN TOÀN BỘ TRÊN MÀN HÌNH
-for item in st.session_state.chat_history:
-    if isinstance(item, (tuple, list)) and len(item) >= 2:
-        speaker = item[0]  
-        text = item[1]     
-        translation = item[2] if len(item) >= 3 else None
-        
-        if speaker == "user":
-            st.chat_message("user", avatar="🧑‍🌾").write(text)
-        else:
-            st.chat_message("assistant", avatar="🌸").write(text)
-            if translation:
-                with st.expander("🌐 Xem cành hoa dịch nghĩa"):
-                    st.write(translation)
+# 3. CHỨC NĂNG RÚT GỌN CUỘC TRÒ TRUYỆN CŨ
+total_messages = len(st.session_state.chat_history)
 
-# PHÁT ÂM THANH TRỰC TIẾP TỪ BỘ NHỚ ĐỆM
+# Chia lịch sử thành phần cũ (cần ẩn) và phần mới (cần hiện)
+# Mỗi lượt trò chuyện gồm 2 tin nhắn (1 user + 1 ai), nên 3 lượt gần nhất = 6 tin nhắn
+cutoff = max(0, total_messages - 6)
+
+if cutoff > 0:
+    with st.expander("📜 Bấm để xem lại các câu thoại trước đó..."):
+        for item in st.session_state.chat_history[:cutoff]:
+            speaker, text, translation = item[0], item[1], item[2] if len(item) >= 3 else None
+            if speaker == "user":
+                st.chat_message("user", avatar="🧑‍🌾").write(text)
+            else:
+                st.chat_message("assistant", avatar="🌸").write(text)
+                if translation:
+                    st.caption(f" dịch nghĩa: {translation}")
+
+# Hiển thị 3 lượt hội thoại mới nhất ra màn hình chính
+for item in st.session_state.chat_history[cutoff:]:
+    speaker, text, translation = item[0], item[1], item[2] if len(item) >= 3 else None
+    if speaker == "user":
+        st.chat_message("user", avatar="🧑‍🌾").write(text)
+    else:
+        st.chat_message("assistant", avatar="🌸").write(text)
+        if translation:
+            with st.expander("🌐 Xem cành hoa dịch nghĩa"):
+                st.write(translation)
+
+# PHÁT ÂM THANH TRỰC TIẾP TỪ RAM
 if st.session_state.audio_bytes_to_play:
     st.audio(st.session_state.audio_bytes_to_play, format="audio/mp3", autoplay=True)
     st.session_state.audio_bytes_to_play = None
 
-st.markdown('</div>', unsafe_allow_html=True) # Đóng khung nội dung chính
+st.markdown('</div>', unsafe_allow_html=True)
 
-# 3. THANH ĐIỀU KHIỂN NEO CHẶT ĐÁY MÀN HÌNH (Đã xóa chữ "Lay r" dính lỗi trước đó)
+# 4. THANH ĐIỀU KHIỂN NEO CHẶT ĐÁY MÀN HÌNH
 st.markdown('<div class="fixed-bottom-bar"><div class="fixed-bottom-container">', unsafe_allow_html=True)
 
 col1, col2 = st.columns([3.5, 1.5])
@@ -203,20 +217,19 @@ with col2:
         st.session_state.chat_history = list()
         st.session_state.last_processed_text = ""
         st.session_state.audio_bytes_to_play = None
-        st.session_state.flower_count = 0  # Reset vườn hoa khi xóa cuộc thoại
+        st.session_state.flower_count = 0  
         st.rerun()
 
-st.markdown('</div></div>', unsafe_allow_html=True) # Đóng khung đáy
+st.markdown('</div></div>', unsafe_allow_html=True)
 
-# --- XỬ LÝ LOGIC GỌI API KHI CÓ AUDIO MỚI ---
+# --- XỬ LÝ LOGIC GỌI API ---
 if captured_text and captured_text != st.session_state.last_processed_text:
     st.session_state.last_processed_text = captured_text
     st.session_state.chat_history.append(("user", captured_text, None))
     
-    # Cộng thêm 1 bông hoa vào nông trại khi người dùng hoàn thành 1 câu nói thành công
     st.session_state.flower_count += 1
     
-    # Hiệu ứng nổ bong bóng ăn mừng đặc biệt khi đạt mốc mỗi 10 bông hoa hướng dương
+    # Bắn pháo hoa ăn mừng khi chạm mốc các bậc (10, 20, 30,...)
     if st.session_state.flower_count % 10 == 0:
         st.balloons()
     
@@ -249,7 +262,6 @@ if captured_text and captured_text != st.session_state.last_processed_text:
             
             st.session_state.chat_history.append(("ai", ai_response_text, vi_translation))
             
-            # Chuyển âm thanh thành dòng byte chạy trực tiếp trên RAM
             async def generate_voice_stream(text):
                 communicate = edge_tts.Communicate(text, voice="en-US-AvaNeural")
                 audio_data = b""
