@@ -1,4 +1,4 @@
 streamlit
-google-genai
+groq
 edge-tts
 streamlit-mic-recorder
