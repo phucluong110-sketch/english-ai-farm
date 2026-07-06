@@ -153,4 +153,113 @@ st.markdown("""
 # 2. KHU VỰC HIỂN THỊ NÔNG TRẠI GAME HÓA
 # Tính toán số lượng hoa hiển thị thực tế trên màn hình (Tối đa 10 bông chu kỳ)
 display_flowers = "🌻" * (st.session_state.flower_count % 10 if st.session_state.flower_count % 10 != 0 or st.session_state.flower_count == 0 else 10)
-title_badge = f"🧑‍🌾 Cấp độ: Nông dân tập sự ({st.session_state.flower_count}
+title_badge = f"🧑‍🌾 Cấp độ: Nông dân tập sự ({st.session_state.flower_count} 🌻)" if st.session_state.flower_count < 10 else f"🌟 Cấp độ: Chủ trang trại thông thái ({st.session_state.flower_count} 🌻)"
+
+st.markdown(f"""
+<div class="farm-status">
+    <b style="color: #E65100;">{title_badge}</b>
+    <div class="sunflowers">{display_flowers if st.session_state.flower_count > 0 else '🪹 Vườn trống (Hãy nói để trồng hoa)'}</div>
+</div>
+""", unsafe_allow_html=True)
+
+st.markdown("<h3 style='text-align: center; color: #1B5E20;'>Luyện Nói Tiếng Anh Với Cành Hoa AI 🌸</h3>", unsafe_allow_html=True)
+
+# HIỂN THỊ LẠI LỊCH SỬ TRÒ CHUYỆN TOÀN BỘ TRÊN MÀN HÌNH
+for item in st.session_state.chat_history:
+    if isinstance(item, (tuple, list)) and len(item) >= 2:
+        speaker = item[0]  
+        text = item[1]     
+        translation = item[2] if len(item) >= 3 else None
+        
+        if speaker == "user":
+            st.chat_message("user", avatar="🧑‍🌾").write(text)
+        else:
+            st.chat_message("assistant", avatar="🌸").write(text)
+            if translation:
+                with st.expander("🌐 Xem cành hoa dịch nghĩa"):
+                    st.write(translation)
+
+# PHÁT ÂM THANH TRỰC TIẾP TỪ BỘ NHỚ ĐỆM
+if st.session_state.audio_bytes_to_play:
+    st.audio(st.session_state.audio_bytes_to_play, format="audio/mp3", autoplay=True)
+    st.session_state.audio_bytes_to_play = None
+
+st.markdown('</div>', unsafe_allow_html=True) # Đóng khung nội dung chính
+
+# 3. THANH ĐIỀU KHIỂN NEO CHẶT ĐÁY MÀN HÌNH (Đã xóa chữ "Lay r" dính lỗi trước đó)
+st.markdown('<div class="fixed-bottom-bar"><div class="fixed-bottom-container">', unsafe_allow_html=True)
+
+col1, col2 = st.columns([3.5, 1.5])
+with col1:
+    captured_text = speech_to_text(
+        language='en',
+        start_prompt="🎙️ Bắt đầu ghi âm nói",
+        stop_prompt="⏹️ Dừng ghi âm",
+        just_once=True,
+        key='stt_module'
+    )
+with col2:
+    if st.button("🧹 Xóa cuộc thoại", use_container_width=True):
+        st.session_state.chat_history = list()
+        st.session_state.last_processed_text = ""
+        st.session_state.audio_bytes_to_play = None
+        st.session_state.flower_count = 0  # Reset vườn hoa khi xóa cuộc thoại
+        st.rerun()
+
+st.markdown('</div></div>', unsafe_allow_html=True) # Đóng khung đáy
+
+# --- XỬ LÝ LOGIC GỌI API KHI CÓ AUDIO MỚI ---
+if captured_text and captured_text != st.session_state.last_processed_text:
+    st.session_state.last_processed_text = captured_text
+    st.session_state.chat_history.append(("user", captured_text, None))
+    
+    # Cộng thêm 1 bông hoa vào nông trại khi người dùng hoàn thành 1 câu nói thành công
+    st.session_state.flower_count += 1
+    
+    # Hiệu ứng nổ bong bóng ăn mừng đặc biệt khi đạt mốc mỗi 10 bông hoa hướng dương
+    if st.session_state.flower_count % 10 == 0:
+        st.balloons()
+    
+    with st.spinner("Cành hoa đang suy nghĩ câu trả lời..."):
+        try:
+            groq_messages = [{"role": "system", "content": PEDAGOGICAL_PROMPT}]
+            for speaker, text, _ in st.session_state.chat_history:
+                role = "user" if speaker == "user" else "assistant"
+                groq_messages.append({"role": role, "content": text})
+                
+            completion = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=groq_messages,
+                temperature=0.7,
+            )
+            ai_response_text = completion.choices[0].message.content
+            
+            # Thực hiện dịch ngầm sang tiếng Việt
+            vi_translation = ""
+            try:
+                translate_prompt = f"Translate the following English text into natural, native-sounding Vietnamese. Return ONLY the translated text, do not add any intros or explanations:\n\n{ai_response_text}"
+                translation_response = client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[{"role": "user", "content": translate_prompt}],
+                    temperature=0.3,
+                )
+                vi_translation = translation_response.choices[0].message.content
+            except Exception as trans_err:
+                vi_translation = f"(Không thể dịch tự động: {str(trans_err)})"
+            
+            st.session_state.chat_history.append(("ai", ai_response_text, vi_translation))
+            
+            # Chuyển âm thanh thành dòng byte chạy trực tiếp trên RAM
+            async def generate_voice_stream(text):
+                communicate = edge_tts.Communicate(text, voice="en-US-AvaNeural")
+                audio_data = b""
+                async for chunk in communicate.stream():
+                    if chunk["type"] == "audio":
+                        audio_data += chunk["data"]
+                return audio_data
+                
+            st.session_state.audio_bytes_to_play = asyncio.run(generate_voice_stream(ai_response_text))
+            st.rerun()
+                
+        except Exception as e:
+            st.error(f"Lỗi kết nối hoặc xử lý API Groq: {str(e)}")
