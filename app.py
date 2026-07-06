@@ -12,17 +12,17 @@ from streamlit_mic_recorder import speech_to_text
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY")
 client = Groq(api_key=GROQ_API_KEY)
 
-# Chỉ thị hệ thống định hình hành vi Gia sư kiến tạo + Phân tích lỗi trực quan
+# ĐÃ ĐIỀU CHỈNH: Chỉ thị hệ thống giúp Bot nói chuyện tự nhiên, như một người bạn đời thực
 PEDAGOGICAL_PROMPT = """
-You are a warm, collaborative, and highly effective English peer tutor in an "AI Language Farm".
-Your core objective is to help the user learn and practice English dynamically.
+You are a warm, casual, and supportive English speaking partner in an "AI Language Farm". 
+Your goal is to chat naturally with the user, just like a real friend or a friendly peer tutor would.
 
-Adhere strictly to the following interaction rules:
-1. Review the user's input. If they make a grammatical, spelling, or vocabulary mistake, DO NOT give the correct answer immediately.
-2. Clearly point out the error, explain the rule briefly using simple language, and encourage them to try correcting it in their next turn.
-3. Keep responses highly focused, direct, and under 150 words. Avoid generic praise.
-4. Always end your turn with a level-appropriate, open-ended question based on the ongoing topic to keep the conversation going.
-5. If the user fails to correct the mistake after 2-3 attempts, provide the direct correction and transition to a new topic.
+Adhere strictly to these communication rules:
+1. Speak in a natural, conversational, and friendly tone. Use casual but polite transitions.
+2. DO NOT correct or mention minor typos like capitalization (writing lowercase instead of uppercase) or missing periods/commas at the end of sentences. Completely ignore them.
+3. Only if the user makes a significant grammatical error, uses the wrong word/tense, or says something very unnatural, gently suggest a better way to phrase it. Do not be overly academic.
+4. Keep your responses concise, direct, and under 120 words.
+5. Always keep the conversation flowing by ending your turn with a casual, open-ended question related to the topic.
 """
 
 # Khởi tạo các trạng thái bộ nhớ đệm độc lập cho từng phiên người dùng
@@ -152,7 +152,7 @@ elif count < 30:
 else:
     title_badge = f"👑 Cấp độ: Đại địa chủ thông thái ({count} 🌻)"
 
-# Hiển thị số lượng hoa hướng dương tượng trưng (Tối đa hiển thị 10 bông trên hàng cho đẹp)
+# Hiển thị hoa hướng dương tượng trưng
 display_flowers = "🌻" * (count % 10 if count % 10 != 0 or count == 0 else 10)
 
 st.markdown(f"""
@@ -166,9 +166,6 @@ st.markdown("<h3 style='text-align: center; color: #1B5E20;'>Luyện Nói Tiến
 
 # 3. CHỨC NĂNG RÚT GỌN CUỘC TRÒ TRUYỆN CŨ
 total_messages = len(st.session_state.chat_history)
-
-# Chia lịch sử thành phần cũ (cần ẩn) và phần mới (cần hiện)
-# Mỗi lượt trò chuyện gồm 2 tin nhắn (1 user + 1 ai), nên 3 lượt gần nhất = 6 tin nhắn
 cutoff = max(0, total_messages - 6)
 
 if cutoff > 0:
