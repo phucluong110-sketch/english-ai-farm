@@ -45,9 +45,15 @@ st.set_page_config(page_title="Gia Sư Tiếng Anh Nông Trại 🧑‍🌾🌸"
 st.markdown("""
 <style>
     /* Toàn bộ nền ứng dụng: Hiệu ứng chuyển màu mượt mà từ trời xanh dịu sang cỏ xanh non */
- .stApp {
+    .stApp {
         background: linear-gradient(135deg, #E8F5E9 0%, #FFF8E1 100%)!important;
         font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        color: #000000 !important; /* Ép màu chữ mặc định toàn trang là màu đen */
+    }
+    
+    /* Đảm bảo các thẻ văn bản cơ bản không bị ảnh hưởng bởi chế độ Dark Mode của nền tảng */
+    p, span, label, div[data-testid="stMarkdownContainer"] {
+        color: #000000 !important;
     }
     
     /* Làm đẹp tiêu đề chính mang màu sắc của khu vườn */
@@ -61,7 +67,7 @@ st.markdown("""
     /* Thiết lập lại nút ghi âm và nút dọn dẹp */
     div.stButton > button {
         background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%)!important;
-        color: white!important;
+        color: white!important; /* Chữ trong nút vẫn được giữ màu trắng */
         border-radius: 20px!important;
         border: none!important;
         padding: 12px 30px!important;
@@ -75,7 +81,7 @@ st.markdown("""
     }
 
     /* Chỉnh sửa kiểu dáng hộp Dịch Tiếng Việt */
- .stExpander {
+    .stExpander {
         background-color: rgba(255, 255, 255, 0.6)!important;
         border: 1px solid #C8E6C9!important;
         border-radius: 12px!important;
