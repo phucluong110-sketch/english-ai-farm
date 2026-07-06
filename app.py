@@ -2,20 +2,18 @@ import streamlit as st
 import asyncio
 import os
 import json
-from google import genai
-from google.genai import types
+from groq import Groq  # Đã đổi từ google.genai sang thư viện groq
 import edge_tts
 from streamlit_mic_recorder import speech_to_text
 
 # =====================================================================
 # CẤU HÌNH KHÓA API KEY CỦA BẠN TẠI ĐÂY
-# Hãy dán mã API Key cá nhân mới (bắt đầu bằng AIzaSy...) của bạn vào giữa hai dấu ngoặc kép
 # =====================================================================
 # Khởi tạo khóa API bảo mật từ Streamlit Secrets bằng hàm get an toàn
-GEMINI_API_KEY = st.secrets.get("GEMINI_API_KEY")
+GROQ_API_KEY = st.secrets.get("GROQ_API_KEY")
 
-# Khởi tạo client sử dụng bộ thư viện google-genai SDK mới nhất
-client = genai.Client(api_key=GEMINI_API_KEY)
+# Khởi tạo client sử dụng thư viện Groq
+client = Groq(api_key=GROQ_API_KEY)
 
 # Chỉ thị hệ thống định hình hành vi Gia sư kiến tạo (Constructivist Peer Tutor)
 PEDAGOGICAL_PROMPT = """
@@ -29,9 +27,7 @@ Adhere strictly to the following interaction rules:
 5. If the user fails to correct the mistake after 2-3 attempts, provide the direct correction and transition to a new topic.
 """
 
-# Khởi tạo các trạng thái bộ nhớ đệm sử dụng list() để tránh bị lỗi hiển thị mất dấu ngoặc vuông
-if "interaction_id" not in st.session_state:
-    st.session_state.interaction_id = None
+# Khởi tạo các trạng thái bộ nhớ đệm
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = list()
 # Biến kiểm tra chống trùng lặp yêu cầu gọi API
@@ -67,7 +63,7 @@ st.markdown("""
     /* Thiết lập lại nút ghi âm và nút dọn dẹp */
     div.stButton > button {
         background: linear-gradient(135deg, #4CAF50 0%, #2E7D32 100%)!important;
-        color: white!important; /* Chữ trong nút vẫn được giữ màu trắng */
+        color: white!important; /* Chữ trong nút vẫn giữ màu trắng */
         border-radius: 20px!important;
         border: none!important;
         padding: 12px 30px!important;
@@ -110,41 +106,40 @@ with col1:
 with col2:
     if st.button("🧹 Xóa cuộc thoại"):
         st.session_state.chat_history = list()
-        st.session_state.interaction_id = None
         st.session_state.last_processed_text = ""
         st.rerun()
 
 # Chỉ xử lý khi có câu thoại mới hoàn toàn để chống lặp trang
-if captured_text and captured_text!= st.session_state.last_processed_text:
+if captured_text and captured_text != st.session_state.last_processed_text:
     st.session_state.last_processed_text = captured_text
     st.session_state.chat_history.append(("user", captured_text, None))
     
     with st.spinner("Cành hoa đang suy nghĩ câu trả lời..."):
-        kwargs = {
-            "model": "gemini-2.5-flash",
-            "input": captured_text,
-            "system_instruction": PEDAGOGICAL_PROMPT,
-        }
-        
-        if st.session_state.interaction_id:
-            kwargs["previous_interaction_id"] = st.session_state.interaction_id
-            
         try:
-            # Tạo một đối tượng tương tác mới
-            interaction = client.interactions.create(**kwargs)
+            # Xây dựng mảng tin nhắn (messages) chứa toàn bộ lịch sử để gửi lên Groq (vì Groq không dùng interaction_id)
+            groq_messages = [{"role": "system", "content": PEDAGOGICAL_PROMPT}]
+            for speaker, text, _ in st.session_state.chat_history:
+                role = "user" if speaker == "user" else "assistant"
+                groq_messages.append({"role": role, "content": text})
+                
+            # Gọi API Groq tạo câu trả lời của Gia sư
+            completion = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=groq_messages,
+                temperature=0.7,
+            )
+            ai_response_text = completion.choices[0].message.content
             
-            st.session_state.interaction_id = interaction.id
-            ai_response_text = interaction.output_text
-            
-            # Thực hiện dịch ngầm sang tiếng Việt
+            # Thực hiện dịch ngầm sang tiếng Việt bằng Groq
             vi_translation = ""
             try:
                 translate_prompt = f"Translate the following English text into natural, native-sounding Vietnamese. Return ONLY the translated text, do not add any intros or explanations:\n\n{ai_response_text}"
-                translation_response = client.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=translate_prompt
+                translation_response = client.chat.completions.create(
+                    model="llama-3.3-70b-versatile",
+                    messages=[{"role": "user", "content": translate_prompt}],
+                    temperature=0.3,
                 )
-                vi_translation = translation_response.text
+                vi_translation = translation_response.choices[0].message.content
             except Exception as trans_err:
                 vi_translation = f"(Không thể dịch tự động: {str(trans_err)})"
             
@@ -158,14 +153,14 @@ if captured_text and captured_text!= st.session_state.last_processed_text:
             asyncio.run(generate_voice_file(ai_response_text))
                 
         except Exception as e:
-            st.error(f"Lỗi kết nối hoặc xử lý API: {str(e)}")
+            st.error(f"Lỗi kết nối hoặc xử lý API Groq: {str(e)}")
                 
-    # HIỂN THỊ LẠI LỊCH SỬ TRÒ CHUYỆN (ĐÃ SỬA LỖI INDEX CHUẨN XÁC)
+    # HIỂN THỊ LẠI LỊCH SỬ TRÒ CHUYỆN
     for item in st.session_state.chat_history:
         if isinstance(item, (tuple, list)) and len(item) >= 2:
-            speaker = item  # Vai trò "user" hoặc "ai"
+            speaker = item[0]  # Vai trò "user" hoặc "ai"
             text = item[1]     # Câu thoại
-            translation = item[2] if len(item) >= 3 else None  # ĐÃ SỬA: Lấy chính xác bản dịch tiếng Việt ở vị trí thứ 3 (chỉ mục index 2)
+            translation = item[2] if len(item) >= 3 else None
             
             if speaker == "user":
                 st.chat_message("user", avatar="🧑‍🌾").write(text)
